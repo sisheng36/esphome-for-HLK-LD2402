@@ -19,7 +19,8 @@ api:
 
 # Allow Over-The-Air updates
 ota:
- - platform: esphome
+  - platform: esphome
+  - platform: web_server
 
 wifi:
   ssid: !secret wifi_ssid
