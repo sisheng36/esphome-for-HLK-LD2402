@@ -1,0 +1,132 @@
+# Minimal configuration for HLK-LD2402 radar sensor
+# This configuration includes only the essential sensors for everyday use
+
+# Basic ESPHome settings - customize these for your device
+esphome:
+  name: radar-sensor
+  friendly_name: Radar Sensor
+
+esp32:
+  board: esp32dev
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+  - platform: web_server
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot in case WiFi connection fails
+  ap:
+    ssid: "Radar-Sensor Fallback"
+    password: !secret fallback_password
+
+logger:
+  level: INFO
+
+# UART configuration for HLK-LD2402
+uart:
+  id: uart_bus
+  tx_pin: GPIO1  # TX0 hardware UART
+  rx_pin: GPIO3  # RX0 hardware UART
+  baud_rate: 115200
+  data_bits: 8
+  parity: NONE
+  stop_bits: 1
+  rx_buffer_size: 300
+
+# HLK-LD2402 radar component
+external_components:
+  - source:
+      type: git
+      url: https://github.com/sisheng36/hlk_ld2402_esphome
+    refresh: 0ms
+
+hlk_ld2402:
+  uart_id: uart_bus
+  id: radar_sensor
+  max_distance: 7.0
+  timeout: 5
+
+# Binary sensors - only essential ones
+binary_sensor:
+  - platform: hlk_ld2402
+    id: radar_presence
+    name: "Presence"
+    device_class: presence
+    hlk_ld2402_id: radar_sensor
+
+  - platform: hlk_ld2402
+    id: radar_micromovement
+    name: "Micromovement"
+    device_class: motion
+    hlk_ld2402_id: radar_sensor
+  
+  - platform: hlk_ld2402
+    id: radar_power_interference
+    name: "Radar Power Interference"
+    device_class: problem
+    power_interference: true
+    hlk_ld2402_id: radar_sensor
+
+  - platform: gpio
+    pin: GPIO12
+    name: "gpio out pin presence"
+    device_class: motion
+
+text_sensor:
+  - platform: hlk_ld2402
+    id: radar_firmware_version
+    name: "Radar Firmware Version"
+    entity_category: diagnostic
+    hlk_ld2402_id: radar_sensor
+    firmware_version: true
+
+  - platform: hlk_ld2402
+    id: radar_operating_mode
+    name: "Radar Operating Mode"
+    entity_category: diagnostic
+    hlk_ld2402_id: radar_sensor
+    operating_mode: true
+
+# Distance sensor - shows how far away the detected person is
+sensor:
+  - platform: hlk_ld2402
+    id: radar_distance
+    name: "Distance"
+    hlk_ld2402_id: radar_sensor
+    device_class: distance
+    unit_of_measurement: "cm"
+    accuracy_decimals: 1
+    throttle: 1000ms  # Use direct parameter for throttling
+# Only include essential calibration button
+button:
+  - platform: template
+    name: "Calibrate(Threshold=3)"
+    entity_category: config
+    on_press:
+      - lambda: id(radar_sensor).calibrate();
+
+  - platform: template
+    name: "Save Config"
+    entity_category: config
+    on_press:
+      - lambda: id(radar_sensor).save_config();
+      
+  - platform: restart
+    icon: mdi:power-cycle
+    name: "ESP Reboot"
+    entity_category: diagnostic
+
+# 板载LED开关
+switch:
+  - platform: gpio
+    pin: GPIO2
+    inverted: True
+    name: "LED"
