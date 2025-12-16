@@ -1,0 +1,1 @@
+# esphome-for-HLK-LD2402
