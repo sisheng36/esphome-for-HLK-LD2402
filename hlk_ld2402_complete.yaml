@@ -53,7 +53,7 @@ uart:
 external_components:
   - source:
       type: git
-      url: https://github.com/sisheng36/hlk_ld2402_esphome
+      url: https://github.com/sisheng36/esphome-for-HLK-LD2402
     refresh: 0ms
 
 hlk_ld2402:
