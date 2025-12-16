@@ -9,6 +9,7 @@ from esphome.const import (
 )
 
 # 依赖与常量定义（移除 automation 依赖）
+CONF_ENGINEERING_MODE = "engineering_mode"
 DEPENDENCIES = ["uart", "text_sensor", "sensor", "binary_sensor"]
 AUTO_LOAD = ["sensor", "binary_sensor", "text_sensor"]
 MULTI_CONF = True
