@@ -70,6 +70,11 @@ hlk_ld2402:
 
 # Binary sensors
 binary_sensor:
+  - platform: gpio
+    pin: GPIO12
+    name: "gpio out pin presence"
+    device_class: motion
+
   - platform: hlk_ld2402
     id: radar_presence
     name: "Presence"
