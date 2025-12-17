@@ -939,8 +939,8 @@ button:
       - logger.log: "WARNING: Performing factory reset on radar module with custom parameters"
       - lambda: |-
           id(radar_sensor).factory_reset_with_params(
-            id(max_distance_param).state,
-            static_cast<int>(id(timeout_param).state)
+            id(max_distance_param).current_option(),
+            static_cast<int>(id(timeout_param).current_option())
           );
 
   - platform: template
@@ -950,9 +950,9 @@ button:
     on_press:
       - lambda: |-
           id(radar_sensor).calibrate_with_coefficients(
-            id(trigger_coefficient).state,
-            id(hold_coefficient).state,
-            id(micromotion_coefficient).state
+            id(trigger_coefficient).current_option(),
+            id(hold_coefficient).current_option(),
+            id(micromotion_coefficient).current_option()
           );
 
   - platform: template
@@ -981,9 +981,9 @@ button:
     entity_category: config
     on_press:
       - lambda: |-
-          int gate = std::stoi(id(gate_number_select).state);
-          float db_value = id(threshold_value_input).state;
-          std::string threshold_type = id(threshold_type_select).state;
+          int gate = std::stoi(id(gate_number_select).current_option());
+          float db_value = id(threshold_value_input).current_option();
+          std::string threshold_type = id(threshold_type_select).current_option();
           
           ESP_LOGI("radar", "Setting Gate %d %s to %.1f dB", 
                    gate, threshold_type.c_str(), db_value);
