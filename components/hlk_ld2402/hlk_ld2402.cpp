@@ -1,7 +1,6 @@
 #include "hlk_ld2402.h"
 #include "esphome.h"
 #include "esphome/core/log.h"
-#include "esp_system.h"
 
 namespace esphome {
 namespace hlk_ld2402 {
@@ -244,7 +243,6 @@ void HLKLD2402Component::loop() {
         sprintf(hex_buf + (i*3), "%02X ", last_bytes[i]);
         sprintf(ascii_buf + i, "%c", (last_bytes[i] >= 32 && last_bytes[i] < 127) ? last_bytes[i] : '.');
       }
-      ESP_LOGI(TAG, "Free heap now: %u", esp_get_free_heap_size());
     }
     byte_count = 0;
     last_status_time = millis();
