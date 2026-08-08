@@ -60,3 +60,8 @@ esphome run my_ld2402.yaml
   异常文本不会破坏帧同步
 - 传感器数量较多（约 70 个实体），1MB flash 的设备（如 D1 Mini Lite、ESP-01）可能
   编译超限，建议使用 4MB 模块（ESP-12E 等）
+
+## License
+
+[GPL-3.0](LICENSE) © 2025-2026 [sisheng36](https://github.com/sisheng36)
+（基础代码来自 bbs.hassbian.com 社区分享，遵循原分享许可）
