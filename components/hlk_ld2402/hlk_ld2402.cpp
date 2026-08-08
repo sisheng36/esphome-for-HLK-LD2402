@@ -681,6 +681,7 @@ void HLKLD2402Component::process_uart_() {
         if (rx_pos_ < RX_BUF_SIZE)
           rx_buf_[rx_pos_++] = c;
         else {
+          ESP_LOGW(TAG, "Data frame exceeds %u bytes, discarding", RX_BUF_SIZE);
           reset_rx_();
           break;
         }
@@ -689,14 +690,10 @@ void HLKLD2402Component::process_uart_() {
             fallback_to_text_(4);
             break;
           }
-        } else if (rx_pos_ == 7) {
-          uint16_t len_field = rx_buf_[5] | (rx_buf_[6] << 8);
-          if (len_field > RX_BUF_SIZE - 11) {
-            reset_rx_();
-            break;
-          }
-          rx_len_ = 11 + len_field;
-        } else if (rx_pos_ == rx_len_) {
+        } else if (rx_pos_ >= 4 && c == DATA_FRAME_FOOTER[3] &&
+                   memcmp(rx_buf_ + rx_pos_ - 4, DATA_FRAME_FOOTER, 4) == 0) {
+          // 帧尾 F8 F7 F6 F5 匹配（设备帧的 frame[5..6] 不是长度字段，
+          // 与原版实现一致地使用头/尾定位完整帧）
           on_data_frame_(rx_buf_, rx_pos_);
           reset_rx_();
           break;
@@ -744,6 +741,7 @@ void HLKLD2402Component::on_cmd_frame_(const uint8_t *frame, size_t len) {
 
 void HLKLD2402Component::on_data_frame_(const uint8_t *frame, size_t len) {
   last_eng_frame_ = millis();
+  eng_retry_count_ = 0;  // 收到数据即视为数据流恢复
   process_engineering_from_frame_(frame, len);
 }
 
@@ -986,6 +984,9 @@ uint8_t HLKLD2402Component::resp_config_exit_(HLKLD2402Component *self, const ui
   self->config_mode_ = false;
   if (strcmp(self->operating_mode_, "Config") == 0) {
     snprintf(self->operating_mode_, sizeof(self->operating_mode_), "%s", "Normal");
+    // 退出配置模式回到 Normal 时同时禁用工程数据处理，
+    // 避免正常模式下的 0x83 帧被误按工程帧解析
+    self->engineering_data_enabled_ = false;
     self->publish_operating_mode_();
   }
   ESP_LOGI(TAG, "Left config mode");
@@ -1014,6 +1015,10 @@ uint8_t HLKLD2402Component::resp_set_mode_(HLKLD2402Component *self, const uint8
     if (mode_byte == (MODE_ENGINEERING & 0xFF)) {
       snprintf(self->operating_mode_, sizeof(self->operating_mode_), "%s", "Engineering");
       self->engineering_data_enabled_ = true;
+      // 重置工程模式看门狗计时，避免刚进入就触发重试
+      self->last_eng_frame_ = millis();
+      self->eng_mode_start_ = millis();
+      self->eng_retry_count_ = 0;
     } else {
       snprintf(self->operating_mode_, sizeof(self->operating_mode_), "%s", "Normal");
       self->engineering_data_enabled_ = false;
@@ -1230,11 +1235,6 @@ uint8_t HLKLD2402Component::resp_batch_params_(HLKLD2402Component *self, const u
   return RESP_OK;
 }
 
-uint8_t HLKLD2402Component::resp_trigger_data_(HLKLD2402Component *self, const uint8_t *,
-                                               size_t) {
-  return RESP_OK;  // 任何响应都算成功
-}
-
 uint32_t HLKLD2402Component::db_to_threshold_(float db_value) {
   return static_cast<uint32_t>(pow(10, db_value / 10));
 }
@@ -1247,6 +1247,12 @@ float HLKLD2402Component::threshold_to_db_(uint32_t threshold) {
 
 void HLKLD2402Component::run_scheduled_() {
   uint32_t now = millis();
+
+  // 一致性自愈：非工程模式下不应启用工程数据处理（如设备异常退出工程模式时）
+  if (strcmp(operating_mode_, "Engineering") != 0 && engineering_data_enabled_) {
+    ESP_LOGW(TAG, "Detected inconsistent state: engineering data enabled but not in engineering mode. Fixing...");
+    engineering_data_enabled_ = false;
+  }
 
   // 启动后 20s 执行固件版本检查
   if (!firmware_check_done_ && (now - startup_time_) > 20000) {
@@ -1275,10 +1281,22 @@ void HLKLD2402Component::run_scheduled_() {
     if (eng_mode_start_ == 0)
       eng_mode_start_ = now;
     if ((now - last_eng_frame_) > 15000) {
-      if (eng_retry_count_ < 3 && (now - last_eng_retry_) > 15000 && !cmd_busy_ &&
-          op_type_ == OpType::NONE) {
-        uint8_t d[2] = {PARAM_MAX_DISTANCE & 0xFF, (PARAM_MAX_DISTANCE >> 8) & 0xFF};
-        start_command_(CMD_GET_PARAMS, d, 2, resp_trigger_data_, 1000);
+      if (eng_retry_count_ < 3 && (now - last_eng_retry_) > 15000) {
+        // fire-and-forget：直接发送参数读取命令触发数据流。
+        // 不进入命令引擎 —— 数据帧流会淹没命令响应，等待只会超时
+        uint8_t frame[12];  // 帧头4 + 长度2 + 命令2 + 参数2 + 帧尾4
+        size_t n = 0;
+        memcpy(frame + n, FRAME_HEADER, 4);
+        n += 4;
+        frame[n++] = 0x04;  // payload: 命令2 + 参数2
+        frame[n++] = 0x00;
+        frame[n++] = CMD_GET_PARAMS & 0xFF;
+        frame[n++] = (CMD_GET_PARAMS >> 8) & 0xFF;
+        frame[n++] = PARAM_MAX_DISTANCE & 0xFF;
+        frame[n++] = (PARAM_MAX_DISTANCE >> 8) & 0xFF;
+        memcpy(frame + n, FRAME_FOOTER, 4);
+        n += 4;
+        write_array(frame, n);
         eng_retry_count_++;
         last_eng_retry_ = now;
         ESP_LOGW(TAG, "No data in engineering mode, re-triggering data flow (attempt %u/3)",

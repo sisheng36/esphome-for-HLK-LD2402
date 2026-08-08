@@ -257,7 +257,6 @@ protected:
   static uint8_t resp_sn_hex_(HLKLD2402Component *self, const uint8_t *p, size_t len);
   static uint8_t resp_sn_char_(HLKLD2402Component *self, const uint8_t *p, size_t len);
   static uint8_t resp_batch_params_(HLKLD2402Component *self, const uint8_t *p, size_t len);
-  static uint8_t resp_trigger_data_(HLKLD2402Component *self, const uint8_t *p, size_t len);
 
 private:
   // 命令引擎状态
