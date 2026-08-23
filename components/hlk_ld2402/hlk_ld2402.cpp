@@ -250,7 +250,7 @@ void HLKLD2402Component::build_script_() {
       break;
     case OpType::AUTO_GAIN:
       op_script_[i++] = step(OP_CMD_ENTER_CONFIG);
-      op_script_[i++] = step(CMD_AUTO_GAIN, resp_auto_gain_, 10000, 0, false);  // 不重试，10s 超时
+      op_script_[i++] = step(CMD_AUTO_GAIN, resp_auto_gain_, 300000, 2, false);  // 5 分钟超时，重试 2 次
       op_script_[i++] = step(OP_CMD_EXIT_CONFIG);
       op_script_[i++] = step(OP_CMD_FINISH);
       break;
@@ -1168,6 +1168,9 @@ uint8_t HLKLD2402Component::resp_save_(HLKLD2402Component *self, const uint8_t *
 
 uint8_t HLKLD2402Component::resp_auto_gain_(HLKLD2402Component *self, const uint8_t *p,
                                             size_t len) {
+  // 诊断日志：打印每个收到帧的前几字节，便于排查 0x00F0 完成帧是否到达及其格式
+  ESP_LOGV(TAG, "auto_gain frame: len=%u bytes=%02X %02X %02X %02X", (unsigned) len,
+           len > 0 ? p[0] : 0, len > 1 ? p[1] : 0, len > 2 ? p[2] : 0, len > 3 ? p[3] : 0);
   // 等待完成通知帧 (F0)
   if (len >= 2 && p[0] == (CMD_AUTO_GAIN_COMPLETE & 0xFF) && p[1] == 0x00) {
     ESP_LOGI(TAG, "Auto gain adjustment completed");
