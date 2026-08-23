@@ -249,6 +249,7 @@ protected:
   static uint8_t resp_config_exit_(HLKLD2402Component *self, const uint8_t *p, size_t len);
   static uint8_t resp_set_mode_(HLKLD2402Component *self, const uint8_t *p, size_t len);
   static uint8_t resp_set_param_(HLKLD2402Component *self, const uint8_t *p, size_t len);
+  static uint8_t resp_start_calib_(HLKLD2402Component *self, const uint8_t *p, size_t len);
   static uint8_t resp_get_param_(HLKLD2402Component *self, const uint8_t *p, size_t len);
   static uint8_t resp_calib_status_(HLKLD2402Component *self, const uint8_t *p, size_t len);
   static uint8_t resp_version_(HLKLD2402Component *self, const uint8_t *p, size_t len);

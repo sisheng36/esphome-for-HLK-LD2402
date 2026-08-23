@@ -236,7 +236,7 @@ void HLKLD2402Component::build_script_() {
       uint8_t d[6] = {(uint8_t) (tv & 0xFF), (uint8_t) (tv >> 8), (uint8_t) (hv & 0xFF),
                       (uint8_t) (hv >> 8), (uint8_t) (mv & 0xFF), (uint8_t) (mv >> 8)};
       op_script_[i++] = step(OP_CMD_ENTER_CONFIG);
-      op_script_[i++] = step(CMD_START_CALIBRATION, resp_set_param_, 1500, 2, false, d, 6);
+      op_script_[i++] = step(CMD_START_CALIBRATION, resp_start_calib_, 1500, 2, false, d, 6);
       op_script_[i++] = step(OP_CMD_WAIT_CALIB);
       op_script_[i++] = step(OP_CMD_EXIT_CONFIG);
       op_script_[i++] = step(OP_CMD_FINISH);
@@ -1040,6 +1040,24 @@ uint8_t HLKLD2402Component::resp_set_param_(HLKLD2402Component *self, const uint
     ESP_LOGE(TAG, "Parameter setting failed with error response");
     return RESP_FAIL;
   }
+  return RESP_OK;
+}
+
+uint8_t HLKLD2402Component::resp_start_calib_(HLKLD2402Component *self, const uint8_t *p,
+                                              size_t len) {
+  // 校准启动命令的专用响应处理器
+  if (len < 2) {
+    ESP_LOGE(TAG, "Start calibration response too short");
+    return RESP_FAIL;
+  }
+  if (p[0] == 0xFF && p[1] == 0xFF) {
+    ESP_LOGE(TAG, "Start calibration failed with error response");
+    return RESP_FAIL;
+  }
+  // ACK 成功：标记校准进行中，交由 loop() 中的轮询查询 0x000A 进度
+  self->calibration_in_progress_ = true;
+  self->last_calib_check_ = 0;  // 使下一轮 loop 立即触发首次进度查询
+  ESP_LOGI(TAG, "Calibration started, polling progress");
   return RESP_OK;
 }
 
